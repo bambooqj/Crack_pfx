@@ -6,6 +6,7 @@ import (
 	"golang.org/x/crypto/pkcs12"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -45,6 +46,7 @@ func getPasswordsWithPrefix(prefix string, length int, charSet string, ch chan<-
 
 func main() {
 	// 从命令行参数中获取pfx文件路径和字节集
+
 	pfxPath := flag.String("pfx", "12qwas.pfx", "path to pfx file")
 	charSet := flag.String("charset", "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-*/!@#$%^&*().", "character set")
 	maxLength := flag.Int("maxlen", 6, "maximum password length")
@@ -99,11 +101,16 @@ func main() {
 					defer func() {
 						<-sem
 					}()
-					if _, err := pkcs12.ToPEM(pfxData, password); err == nil {
+					_, err := pkcs12.ToPEM(pfxData, password)
+					if err == nil {
 						res.Lock()
 						res.password = password
 						res.Unlock()
 						close(done)
+					}
+					if !strings.Contains(err.Error(), "decryption password incorrect") {
+						fmt.Println("\npassword is: ", password)
+						fmt.Println(err.Error())
 					}
 					atomic.AddInt64(&attemptedPasswords, 1)
 					fmt.Printf("\r破解进度: %.2f / %.2f  正在测试密码: %s", float64(attemptedPasswords), float64(totalPasswords), password)
